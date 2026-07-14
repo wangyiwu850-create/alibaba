@@ -9,7 +9,8 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://message.alibaba.com/*"
+    "https://message.alibaba.com/*",
+    "http://127.0.0.1:9876/*"
   ],
   "background": {
     "service_worker": "background.js"

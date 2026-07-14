@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ['enabled', 'startHour', 'endHour', 'activityLog'],
     (result) => {
       enableToggle.checked = result.enabled !== false;
-      startHour.value = result.startHour || 17;
-      endHour.value = result.endHour || 8;
+      startHour.value = (result.startHour != null) ? result.startHour : 0;
+      endHour.value = (result.endHour != null) ? result.endHour : 0;
 
       updateStatus();
       renderLog(result.activityLog || []);

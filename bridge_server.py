@@ -81,15 +81,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
             preview = data.get("preview", "")
             url = data.get("url", "")
 
-            # Read existing pending inquiries
+            # Read ONLY pending for dedup. Known inquiries CAN be re-queued
+            # if they have new unread messages (repeat buyer messages)
             pending = []
             if os.path.exists(PENDING_FILE):
-                with open(PENDING_FILE, "r") as f:
+                with open(PENDING_FILE, "r", encoding="utf-8") as f:
                     pending = json.load(f)
 
-            # Don't duplicate
-            existing_ids = {p["inquiryId"] for p in pending}
-            if inquiry_id not in existing_ids:
+            # Only deduplicate against pending queue
+            existing_pending = {p["inquiryId"] for p in pending}
+            if inquiry_id not in existing_pending:
                 pending.append({
                     "inquiryId": inquiry_id,
                     "buyerName": buyer_name,
