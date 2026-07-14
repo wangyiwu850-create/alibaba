@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alibaba Auto-Reply</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      color: #1a1a2e;
+      background: #f8f9fb;
+    }
+    .header {
+      background: linear-gradient(135deg, #ff6b00, #ee5a24);
+      color: white;
+      padding: 16px 20px;
+    }
+    .header h1 { font-size: 16px; font-weight: 600; }
+    .header .sub { font-size: 11px; opacity: 0.85; margin-top: 4px; }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: white;
+      border-bottom: 1px solid #e8ecf1;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 8px;
+    }
+    .status-dot.active { background: #00c853; box-shadow: 0 0 6px #00c85380; }
+    .status-dot.inactive { background: #d0d5dd; }
+    .status-text { font-weight: 500; font-size: 13px; }
+    .status-time { font-size: 11px; color: #667085; margin-top: 2px; }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px; height: 24px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #d0d5dd;
+      border-radius: 24px;
+      transition: .3s;
+    }
+    .toggle-slider:before {
+      content: "";
+      position: absolute;
+      height: 18px; width: 18px;
+      left: 3px; bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: .3s;
+    }
+    input:checked + .toggle-slider { background: #ff6b00; }
+    input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+    .section {
+      background: white;
+      margin: 8px 0;
+      padding: 16px 20px;
+      border-top: 1px solid #e8ecf1;
+      border-bottom: 1px solid #e8ecf1;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #667085;
+      margin-bottom: 12px;
+    }
+    .time-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .time-row label { font-size: 12px; color: #344054; min-width: 40px; }
+    .time-row select {
+      padding: 6px 10px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+      color: #1a1a2e;
+    }
+    .time-sep { color: #667085; font-size: 12px; }
+
+    .template-area {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: inherit;
+      resize: vertical;
+      line-height: 1.5;
+      color: #1a1a2e;
+    }
+    .template-area:focus { outline: none; border-color: #ff6b00; }
+    .template-hint {
+      font-size: 10px;
+      color: #98a2b3;
+      margin-top: 4px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-primary {
+      background: #ff6b00;
+      color: white;
+    }
+    .btn-primary:hover { background: #e55d00; }
+    .btn-secondary {
+      background: #f2f4f7;
+      color: #344054;
+    }
+    .btn-secondary:hover { background: #e4e7ec; }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+    }
+
+    .log-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .log-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f2f4f7;
+      font-size: 11px;
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .log-dot.sent { background: #00c853; }
+    .log-dot.error { background: #ff3d00; }
+    .log-dot.detected { background: #2196f3; }
+    .log-time { color: #98a2b3; flex-shrink: 0; min-width: 48px; }
+    .log-msg { color: #344054; word-break: break-all; }
+    .log-empty { color: #98a2b3; font-size: 12px; text-align: center; padding: 16px; }
+
+    .footer {
+      text-align: center;
+      padding: 8px;
+      font-size: 10px;
+      color: #98a2b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Alibaba Inquiry Monitor</h1>
+    <div class="sub">Real-time auto-reply for off-hours</div>
+  </div>
+
+  <div class="status-bar">
+    <div>
+      <div>
+        <span class="status-dot active" id="statusDot"></span>
+        <span class="status-text" id="statusText">Monitoring</span>
+      </div>
+      <div class="status-time" id="statusTime">Active hours: 17:00 - 08:00</div>
+    </div>
+    <label class="toggle-switch">
+      <input type="checkbox" id="enableToggle" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Active Hours (set same = all day)</div>
+    <div class="time-row">
+      <label>From</label>
+      <select id="startHour">
+        <option value="0" selected>00:00</option>
+        <option value="1">01:00</option>
+        <option value="2">02:00</option>
+        <option value="3">03:00</option>
+        <option value="4">04:00</option>
+        <option value="5">05:00</option>
+        <option value="6">06:00</option>
+        <option value="7">07:00</option>
+        <option value="8">08:00</option>
+        <option value="9">09:00</option>
+        <option value="10">10:00</option>
+        <option value="11">11:00</option>
+        <option value="12">12:00</option>
+        <option value="13">13:00</option>
+        <option value="14">14:00</option>
+        <option value="15">15:00</option>
+        <option value="16">16:00</option>
+        <option value="17" selected>17:00</option>
+        <option value="18">18:00</option>
+        <option value="19">19:00</option>
+        <option value="20">20:00</option>
+        <option value="21">21:00</option>
+        <option value="22">22:00</option>
+        <option value="23">23:00</option>
+      </select>
+      <span class="time-sep">to</span>
+      <select id="endHour">
+        <option value="0" selected>00:00</option>
+        <option value="1">01:00</option>
+        <option value="2">02:00</option>
+        <option value="3">03:00</option>
+        <option value="4">04:00</option>
+        <option value="5">05:00</option>
+        <option value="6">06:00</option>
+        <option value="7">07:00</option>
+        <option value="8">08:00</option>
+        <option value="9">09:00</option>
+        <option value="10">10:00</option>
+        <option value="11">11:00</option>
+        <option value="12">12:00</option>
+        <option value="13">13:00</option>
+        <option value="14">14:00</option>
+        <option value="15">15:00</option>
+        <option value="16">16:00</option>
+        <option value="17">17:00</option>
+        <option value="18">18:00</option>
+        <option value="19">19:00</option>
+        <option value="20">20:00</option>
+        <option value="21">21:00</option>
+        <option value="22">22:00</option>
+        <option value="23">23:00</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">How It Works</div>
+    <div style="font-size:12px;color:#344054;line-height:1.6;">
+      <div style="margin-bottom:8px;"><span style="color:#ff6b00;font-weight:600;">1. Detect</span> - Chrome monitors Alibaba for new inquiries</div>
+      <div style="margin-bottom:8px;"><span style="color:#ff6b00;font-weight:600;">2. Notify</span> - System notification pops up instantly</div>
+      <div style="margin-bottom:8px;"><span style="color:#ff6b00;font-weight:600;">3. AI Reply</span> - Cron triggers Accio AI to generate & send professional reply (every 5 min)</div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="saveBtn">Save Settings</button>
+    <button class="btn btn-secondary" id="clearLogBtn">Clear Log</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Activity Log</div>
+    <div class="log-list" id="logList">
+      <div class="log-empty">No activity yet</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Monitors message.alibaba.com | AI replies via Accio | Click extension icon to configure
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

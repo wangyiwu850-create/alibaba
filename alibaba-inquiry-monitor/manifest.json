@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Alibaba Inquiry Monitor",
+  "version": "2.0.0",
+  "description": "Real-time Alibaba.com inquiry detection with AI-powered smart replies via Accio",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://message.alibaba.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://message.alibaba.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Alibaba Inquiry Auto-Reply"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
