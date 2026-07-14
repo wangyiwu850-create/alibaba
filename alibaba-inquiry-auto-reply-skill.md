@@ -1,7 +1,7 @@
 # Alibaba Inquiry Auto-Reply Skill
 
 > 全自动 Alibaba 国际站询盘检测 + AI 智能回复系统
-> 适用店铺: cnsandwichpanel (可复用到其他店铺)
+> 适用店铺: 国际站ID (可复用到其他店铺)
 
 ---
 
