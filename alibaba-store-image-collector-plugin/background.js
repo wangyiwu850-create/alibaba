@@ -1,5 +1,12 @@
 importScripts('zip.js');
 
+let cancelRequested = false;
+const taskTabs = new Set();
+
+function ensureNotCancelled() {
+  if (cancelRequested) throw new Error('任务已由用户强制停止。');
+}
+
 function safeName(value, fallback) {
   return (value || fallback).replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 64) || fallback;
 }
@@ -25,12 +32,17 @@ function waitForTab(tabId) {
       completed = true;
       clearTimeout(timeoutId);
       chrome.tabs.onUpdated.removeListener(listener);
+      chrome.tabs.onRemoved.removeListener(removedListener);
       if (error) reject(error); else setTimeout(resolve, 500);
     };
     const listener = (changedId, change) => {
       if (changedId === tabId && change.status === 'complete') finish();
     };
+    const removedListener = (removedId) => {
+      if (removedId === tabId) finish(new Error('商品页面已被关闭，任务自动停止并解锁。'));
+    };
     chrome.tabs.onUpdated.addListener(listener);
+    chrome.tabs.onRemoved.addListener(removedListener);
     chrome.tabs.get(tabId).then((tab) => {
       if (tab.status === 'complete') finish();
     }).catch(finish);
@@ -57,30 +69,37 @@ function waitForDownload(downloadId) {
 }
 
 async function readProduct(url) {
+  ensureNotCancelled();
   const tab = await chrome.tabs.create({ url, active: false });
+  taskTabs.add(tab.id);
   try {
     await waitForTab(tab.id);
     const loadedTab = await chrome.tabs.get(tab.id);
-    if (new URL(loadedTab.url).hostname === 'login.alibaba.com') {
-      throw new Error('Alibaba 要求登录普通买家账号后才能读取商品主图和副图。');
+    const loadedHost = new URL(loadedTab.url).hostname;
+    if (/(^|\.)(login|passport|account)\./i.test(loadedHost) || /login|passport/i.test(new URL(loadedTab.url).pathname)) {
+      throw new Error('平台要求先登录普通买家账号后才能读取该商品主图和副图。');
     }
     const result = await message(tab.id, 'extract-product');
     if (result.error) throw new Error(result.error);
     return result;
   } finally {
-    await chrome.tabs.remove(tab.id);
+    taskTabs.delete(tab.id);
+    await chrome.tabs.remove(tab.id).catch(() => {});
   }
 }
 
 async function readListing(url) {
+  ensureNotCancelled();
   const tab = await chrome.tabs.create({ url, active: false });
+  taskTabs.add(tab.id);
   try {
     await waitForTab(tab.id);
     const result = await message(tab.id, 'extract-listing');
     if (result.error) throw new Error(result.error);
     return result;
   } finally {
-    await chrome.tabs.remove(tab.id);
+    taskTabs.delete(tab.id);
+    await chrome.tabs.remove(tab.id).catch(() => {});
   }
 }
 
@@ -89,6 +108,7 @@ async function collectListingPages(initial) {
   const pages = new Set();
   let page = initial;
   for (let pageNumber = 1; page.nextUrl && pageNumber < 100; pageNumber += 1) {
+    ensureNotCancelled();
     if (pages.has(page.nextUrl)) break;
     pages.add(page.nextUrl);
     await reportProgress({ status: 'running', phase: '读取商品列表分页', current: pageNumber, total: 0, item: page.nextUrl, message: '已发现 ' + urls.size + ' 个商品链接' });
@@ -99,54 +119,28 @@ async function collectListingPages(initial) {
 }
 
 async function archive(products, archiveName) {
-  const entries = [];
-  const failed = [];
-  const folders = new Set();
-  for (let productIndex = 0; productIndex < products.length; productIndex += 1) {
-    const product = products[productIndex];
-    await reportProgress({ status: 'running', phase: '下载并打包图片', current: productIndex + 1, total: products.length, item: product.title, message: '已下载 ' + entries.length + ' 张，失败 ' + failed.length + ' 张' });
-    let folder = safeName(product.title, 'product');
-    let duplicateNumber = 2;
-    const base = folder;
-    while (folders.has(folder.toLowerCase())) {
-      folder = base + '-' + duplicateNumber;
-      duplicateNumber += 1;
-    }
-    folders.add(folder.toLowerCase());
-    for (let imageIndex = 0; imageIndex < product.images.length; imageIndex += 1) {
-      const image = product.images[imageIndex];
-      try {
-        const response = await fetch(image.url, { credentials: 'omit', cache: 'no-store' });
-        if (!response.ok) throw new Error(new URL(image.url).hostname + ' HTTP ' + response.status);
-        const blob = await response.blob();
-        if (!blob.type.startsWith('image/')) {
-          throw new Error(new URL(image.url).hostname + ' 返回了 ' + (blob.type || '未知类型') + '，不是图片');
-        }
-        const prefix = image.role === 'main' ? '01-main' : String(imageIndex + 1).padStart(2, '0') + '-gallery';
-        entries.push({ name: folder + '/' + prefix + extension(blob.type), blob });
-      } catch (error) {
-        failed.push({ product: product.title, url: image.url, error: error.message });
-      }
-    }
+  ensureNotCancelled();
+  const existingContexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+  if (!existingContexts.length) {
+    await chrome.offscreen.createDocument({ url: 'offscreen.html', reasons: ['BLOBS'], justification: '生成完整的商品图片 ZIP 文件' });
   }
-  if (!entries.length && failed.length) {
-    const sample = failed.slice(0, 3).map((item) => item.error).join('；');
-    throw new Error('全部图片下载失败。请在扩展管理页重新加载扩展并接受新增的图片 CDN 权限。错误示例：' + sample);
-  }
-  await reportProgress({ status: 'running', phase: '生成 ZIP', current: products.length, total: products.length, item: archiveName, message: '共 ' + entries.length + ' 张图片，正在生成 ZIP' });
-  entries.push({ name: 'manifest.json', blob: new Blob([JSON.stringify({ products, failed }, null, 2)], { type: 'application/json' }) });
-  const objectUrl = URL.createObjectURL(await createZip(entries));
   try {
-    const downloadId = await chrome.downloads.download({ url: objectUrl, filename: safeName(archiveName, 'product-images') + '.zip', saveAs: true });
+    await reportProgress({ status: 'running', phase: '下载并打包图片', current: 0, total: products.length, item: archiveName, message: '正在隐藏页面中下载图片并生成完整 ZIP' });
+    const result = await chrome.runtime.sendMessage({ action: 'build-archive', products, archiveName });
+    ensureNotCancelled();
+    if (result.error) throw new Error(result.error);
+    const downloadId = await chrome.downloads.download({ url: result.objectUrl, filename: safeName(archiveName, 'product-images') + '.zip', saveAs: true });
     await reportProgress({ status: 'running', phase: '等待 ZIP 保存', current: products.length, total: products.length, item: archiveName, message: '请在浏览器保存窗口中确认文件位置' });
     await waitForDownload(downloadId);
+    return { downloaded: result.downloaded, failed: result.failed };
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    await chrome.runtime.sendMessage({ action: 'release-archive' }).catch(() => {});
+    await chrome.offscreen.closeDocument().catch(() => {});
   }
-  return { downloaded: entries.length - 1, failed: failed.length };
 }
 
 async function runTask(request) {
+  cancelRequested = false;
   await reportProgress({ status: 'running', phase: '准备任务', current: 0, total: 0, item: '', message: '正在读取页面' });
   if (request.action === 'archive-current') {
     const product = await message(request.tabId, 'extract-product');
@@ -161,6 +155,7 @@ async function runTask(request) {
     const products = [];
     const errors = [];
     for (let productIndex = 0; productIndex < urls.length; productIndex += 1) {
+      ensureNotCancelled();
       await reportProgress({ status: 'running', phase: '读取商品详情', current: productIndex + 1, total: urls.length, item: urls[productIndex], message: '成功 ' + products.length + ' 个，失败 ' + errors.length + ' 个' });
       try {
         products.push(await readProduct(urls[productIndex]));
@@ -176,6 +171,19 @@ async function runTask(request) {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, respond) => {
+  if (request.action === 'reset-task') {
+    cancelRequested = true;
+    Promise.all([...taskTabs].map((tabId) => chrome.tabs.remove(tabId).catch(() => {})))
+      .then(() => chrome.offscreen.closeDocument().catch(() => {}))
+      .then(async () => {
+        taskTabs.clear();
+        const messageText = '任务已强制停止，临时页面已关闭，按钮已解锁。';
+        await reportProgress({ status: 'cancelled', phase: '已强制停止', current: 0, total: 1, item: '', message: messageText });
+        respond({ message: messageText });
+      });
+    return true;
+  }
+  if (!['archive-current', 'archive-listing'].includes(request.action)) return false;
   runTask(request)
     .then(async (messageText) => {
       await reportProgress({ status: 'completed', phase: '已完成', current: 1, total: 1, item: '', message: messageText });
