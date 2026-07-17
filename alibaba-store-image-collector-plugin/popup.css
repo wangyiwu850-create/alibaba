@@ -7,6 +7,8 @@ input, button { box-sizing: border-box; width: 100%; border-radius: 6px; padding
 input { border: 1px solid #cbd5e1; }
 button { margin-top: 10px; border: 0; background: #0f766e; color: white; cursor: pointer; font-weight: 600; }
 button:disabled { background: #94a3b8; cursor: wait; }
+.danger { background: #b91c1c; }
+.danger:disabled { background: #b91c1c; cursor: pointer; }
 .hint { font-size: 12px; color: #64748b; }
 #status { min-height: 20px; font-weight: 600; }
 
