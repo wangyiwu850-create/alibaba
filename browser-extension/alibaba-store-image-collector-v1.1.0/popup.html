@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>商品图片归档</h1>
+    <p id="site">正在识别页面…</p>
+    <label>ZIP 文件名<input id="archive-name" value="店铺商品图片"></label>
+    <button id="current">下载当前商品图片</button>
+    <button id="listing">采集列表全部商品</button>
+    <section id="progress-panel" hidden>
+      <div class="progress-line"><span id="phase"></span><span id="counter"></span></div>
+      <progress id="progress" max="1" value="0"></progress>
+      <p id="current-item"></p>
+    </section>
+    <p class="hint">处理时会逐个读取商品详情页；全部完成后才生成并下载一个 ZIP。</p>
+    <p id="status" role="status"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
