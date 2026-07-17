@@ -5,7 +5,7 @@ const counterNode = document.querySelector('#counter');
 const currentItemNode = document.querySelector('#current-item');
 const progressNode = document.querySelector('#progress');
 const progressPanel = document.querySelector('#progress-panel');
-const buttons = [...document.querySelectorAll('button')];
+const taskButtons = [document.querySelector('#current'), document.querySelector('#listing')];
 
 function setStatus(message) {
   statusNode.textContent = message;
@@ -16,7 +16,7 @@ function archiveName() {
 }
 
 function setBusy(value) {
-  buttons.forEach((button) => { button.disabled = value; });
+  taskButtons.forEach((button) => { button.disabled = value; });
 }
 
 function renderProgress(state) {
@@ -33,6 +33,12 @@ function renderProgress(state) {
 
 async function refreshProgress() {
   const { taskProgress } = await chrome.storage.local.get('taskProgress');
+  if (taskProgress?.status === 'running' && Date.now() - (taskProgress.updatedAt || 0) > 300000) {
+    taskProgress.status = 'failed';
+    taskProgress.phase = '任务已自动解锁';
+    taskProgress.message = '超过 5 分钟没有进度，已自动解除按钮锁定。可重新开始或点击强制停止。';
+    await chrome.storage.local.set({ taskProgress });
+  }
   renderProgress(taskProgress);
 }
 
@@ -57,9 +63,21 @@ async function run(action) {
 
 document.querySelector('#current').addEventListener('click', () => run('archive-current'));
 document.querySelector('#listing').addEventListener('click', () => run('archive-listing'));
+document.querySelector('#reset').addEventListener('click', async () => {
+  setStatus('正在强制停止任务…');
+  try {
+    const result = await chrome.runtime.sendMessage({ action: 'reset-task' });
+    setStatus(result.message || '任务已停止并解锁。');
+  } catch (error) {
+    await chrome.storage.local.set({ taskProgress: { status: 'cancelled', phase: '已强制解锁', current: 0, total: 1, item: '', message: '后台已重启，按钮锁定已清除。', updatedAt: Date.now() } });
+    setStatus('后台已重启，按钮锁定已清除。');
+  }
+  setBusy(false);
+  await refreshProgress();
+});
 
 activeTab().then((tab) => chrome.tabs.sendMessage(tab.id, { action: 'platform' }))
-  .then((result) => { siteNode.textContent = result.supported ? '已识别：' + result.platform : '请打开 Alibaba.com 或 Amazon 页面'; })
+  .then((result) => { siteNode.textContent = result.supported ? '已识别：' + result.platform : '请打开受支持的电商平台页面'; })
   .catch(() => { siteNode.textContent = '请刷新电商页面后重试'; });
 
 refreshProgress();
