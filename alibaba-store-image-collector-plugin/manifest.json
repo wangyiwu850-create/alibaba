@@ -1,14 +1,23 @@
 {
   "manifest_version": 3,
   "name": "店铺商品图片归档",
-  "version": "1.2.0",
-  "description": "从公开的 Alibaba.com 与 Amazon 店铺页面收集全部商品主图、副图并导出 ZIP。",
-  "permissions": ["activeTab", "downloads", "storage", "tabs"],
+  "version": "1.5.0",
+  "description": "从 Alibaba、1688、淘宝、天猫、抖音电商与 Amazon 店铺页面收集商品主图、副图并导出 ZIP。",
+  "permissions": ["activeTab", "downloads", "offscreen", "storage", "tabs"],
   "host_permissions": [
     "https://*.alibaba.com/*",
     "https://*.alicdn.com/*",
     "https://*.alicdn.net/*",
     "https://*.alibabausercontent.com/*",
+    "https://*.1688.com/*",
+    "https://*.taobao.com/*",
+    "https://*.tmall.com/*",
+    "https://*.douyin.com/*",
+    "https://*.jinritemai.com/*",
+    "https://*.byteimg.com/*",
+    "https://*.douyinpic.com/*",
+    "https://*.pstatp.com/*",
+    "https://*.snssdk.com/*",
     "https://m.media-amazon.com/*",
     "https://*.ssl-images-amazon.com/*",
     "https://*.amazon.com/*",
@@ -24,7 +33,7 @@
   "action": {"default_title": "商品图片归档", "default_popup": "popup.html"},
   "background": {"service_worker": "background.js"},
   "content_scripts": [{
-    "matches": ["https://*.alibaba.com/*", "https://*.amazon.com/*", "https://*.amazon.co.uk/*", "https://*.amazon.de/*", "https://*.amazon.fr/*", "https://*.amazon.it/*", "https://*.amazon.es/*", "https://*.amazon.co.jp/*", "https://*.amazon.ca/*", "https://*.amazon.com.au/*"],
+    "matches": ["https://*.alibaba.com/*", "https://*.1688.com/*", "https://*.taobao.com/*", "https://*.tmall.com/*", "https://*.douyin.com/*", "https://*.jinritemai.com/*", "https://*.amazon.com/*", "https://*.amazon.co.uk/*", "https://*.amazon.de/*", "https://*.amazon.fr/*", "https://*.amazon.it/*", "https://*.amazon.es/*", "https://*.amazon.co.jp/*", "https://*.amazon.ca/*", "https://*.amazon.com.au/*"],
     "js": ["content.js"],
     "run_at": "document_idle"
   }]
