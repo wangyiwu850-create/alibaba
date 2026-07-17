@@ -116,15 +116,22 @@ async function archive(products, archiveName) {
     for (let imageIndex = 0; imageIndex < product.images.length; imageIndex += 1) {
       const image = product.images[imageIndex];
       try {
-        const response = await fetch(image.url, { credentials: 'include' });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const response = await fetch(image.url, { credentials: 'omit', cache: 'no-store' });
+        if (!response.ok) throw new Error(new URL(image.url).hostname + ' HTTP ' + response.status);
         const blob = await response.blob();
+        if (!blob.type.startsWith('image/')) {
+          throw new Error(new URL(image.url).hostname + ' 返回了 ' + (blob.type || '未知类型') + '，不是图片');
+        }
         const prefix = image.role === 'main' ? '01-main' : String(imageIndex + 1).padStart(2, '0') + '-gallery';
         entries.push({ name: folder + '/' + prefix + extension(blob.type), blob });
       } catch (error) {
         failed.push({ product: product.title, url: image.url, error: error.message });
       }
     }
+  }
+  if (!entries.length && failed.length) {
+    const sample = failed.slice(0, 3).map((item) => item.error).join('；');
+    throw new Error('全部图片下载失败。请在扩展管理页重新加载扩展并接受新增的图片 CDN 权限。错误示例：' + sample);
   }
   await reportProgress({ status: 'running', phase: '生成 ZIP', current: products.length, total: products.length, item: archiveName, message: '共 ' + entries.length + ' 张图片，正在生成 ZIP' });
   entries.push({ name: 'manifest.json', blob: new Blob([JSON.stringify({ products, failed }, null, 2)], { type: 'application/json' }) });
