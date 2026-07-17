@@ -16,7 +16,7 @@ async function createZip(entries) {
   }
   const directoryOffset = offset;
   for (const entry of directory) {
-    const record = new Uint8Array([0x50,0x4b,0x01,0x02,20,0,20,0,0,0,0,0,...u16(now.time),...u16(now.date),...u32(entry.crc),...u32(entry.size),...u32(entry.size),...u16(entry.name.length),0,0,0,0,0,0,0,0,0,0,...u32(entry.offset),...entry.name]);
+    const record = new Uint8Array([0x50,0x4b,0x01,0x02,20,0,20,0,0,0,0,0,...u16(now.time),...u16(now.date),...u32(entry.crc),...u32(entry.size),...u32(entry.size),...u16(entry.name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(entry.offset),...entry.name]);
     chunks.push(record); offset += record.length;
   }
   chunks.push(new Uint8Array([0x50,0x4b,0x05,0x06,0,0,0,0,...u16(directory.length),...u16(directory.length),...u32(offset - directoryOffset),...u32(directoryOffset),0,0]));
