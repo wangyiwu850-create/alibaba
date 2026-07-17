@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "店铺商品图片归档",
+  "version": "1.0.0",
+  "description": "从公开的 Alibaba.com 与 Amazon 店铺页面收集全部商品主图、副图并导出 ZIP。",
+  "permissions": ["activeTab", "downloads", "storage", "tabs"],
+  "host_permissions": [
+    "https://*.alibaba.com/*",
+    "https://*.amazon.com/*",
+    "https://*.amazon.co.uk/*",
+    "https://*.amazon.de/*",
+    "https://*.amazon.fr/*",
+    "https://*.amazon.it/*",
+    "https://*.amazon.es/*",
+    "https://*.amazon.co.jp/*",
+    "https://*.amazon.ca/*",
+    "https://*.amazon.com.au/*"
+  ],
+  "action": {"default_title": "商品图片归档", "default_popup": "popup.html"},
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{
+    "matches": ["https://*.alibaba.com/*", "https://*.amazon.com/*", "https://*.amazon.co.uk/*", "https://*.amazon.de/*", "https://*.amazon.fr/*", "https://*.amazon.it/*", "https://*.amazon.es/*", "https://*.amazon.co.jp/*", "https://*.amazon.ca/*", "https://*.amazon.com.au/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
